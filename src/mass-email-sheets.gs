@@ -72,14 +72,15 @@ function sendFlexibleMailMerge() {
       };
 
       let sentTime = "";
+
       if (schedule === "") {
-        // Send email immediately
+        // No schedule, send immediately
         GmailApp.sendEmail(to, subject, "", emailOptions);
         sentTime = new Date().toLocaleString();
         logToConsoleSheet("Email sent successfully", `To: ${to} at ${sentTime}`);
         sheet.getRange(i + 1, statusColIndex + 1).setValue(`Sent: ${sentTime}`);
       } else {
-        // Validate schedule format
+        // There is a schedule, create draft and send at scheduled time
         const scheduledDate = new Date(schedule);
         if (isNaN(scheduledDate)) {
           // Alert if the schedule date is invalid
@@ -88,17 +89,17 @@ function sendFlexibleMailMerge() {
           sheet.getRange(i + 1, statusColIndex + 1).setValue("Error: Invalid date format");
           continue;
         }
-
+      
         if (scheduledDate > now) {
-          // Schedule email using a time-driven trigger
+          // Create a draft email
           const draft = GmailApp.createDraft(to, subject, "", emailOptions);
-
-          // Trigger the email to send at the specified time
+      
+          // Wait until the scheduled time and then send the draft
           const timeInMillis = scheduledDate.getTime() - now.getTime();
           if (timeInMillis > 0) {
-            // Wait for the scheduled time and then send the draft
+            // Sleep until the scheduled time
             Utilities.sleep(timeInMillis);  // Sleep until the scheduled time
-            draft.send();  // Send the draft email
+            draft.send();  // Send the draft email immediately after sleep
             sentTime = scheduledDate.toLocaleString();
             logToConsoleSheet("Scheduled email sent", `To: ${to}, At: ${sentTime}`);
             sheet.getRange(i + 1, statusColIndex + 1).setValue(`Scheduled: ${sentTime}`);
@@ -107,8 +108,14 @@ function sendFlexibleMailMerge() {
             logToConsoleSheet("Error: Past Date", `Row ${i + 1}: Schedule date is in the past`);
             sheet.getRange(i + 1, statusColIndex + 1).setValue("Error: Past date");
           }
+        } else {
+          // Schedule date is in the past, show an error
+          ui.alert('Past Date Error', `Row ${i + 1}: The schedule date is in the past. Please provide a future date. The email will not be sent.`, ui.ButtonSet.OK);
+          logToConsoleSheet("Error: Past Date", `Row ${i + 1}: Schedule date is in the past`);
+          sheet.getRange(i + 1, statusColIndex + 1).setValue("Error: Past date");
         }
-      }
+      }      
+
     } catch (err) {
       logToConsoleSheet("Error sending email", `To: ${to} | Error: ${err.message}`);
       if (statusColIndex !== -1) {

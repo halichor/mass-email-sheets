@@ -14,13 +14,17 @@ function sendFlexibleMailMerge() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Data");
   const data = sheet.getDataRange().getValues();
-  
-  // Adjusted for header row starting at row 2 (index 1)
-  const headers = data[1];  // Read headers from row 2
+
+  // Change the header (index) row here. The value should be (-1) from the current row, since indexes are 0-based.
+  // Ex. Your column headers are in row 6, so the value should be 5.
+  const HEADER_ROW_INDEX = 1;  
+  const DATA_START_ROW_INDEX = HEADER_ROW_INDEX + 2;  // Adjust this to skip rows. Use (+ 1) to read data right after the header.
+ 
+  const headers = data[HEADER_ROW_INDEX];
   const statusColIndex = headers.indexOf(STATUS_COLUMN_NAME);
   const now = new Date();
   
-  // Get the Google Doc ID from cell B1 in the "Data" tab
+  // Reads the Google Doc ID from cell B1. Change this if the cell location is different.
   const docId = sheet.getRange("B1").getValue();
   
   if (!docId) {
@@ -28,8 +32,8 @@ function sendFlexibleMailMerge() {
     return;
   }
 
-  for (let i = 2; i < data.length; i++) {  // Start from row 3 (index 2)
-    const row = data[i];
+  for (let i = DATA_START_ROW_INDEX; i < data.length; i++) {
+  const row = data[i];
     const rowData = {};
     headers.forEach((header, index) => rowData[header.trim()] = row[index]);
 

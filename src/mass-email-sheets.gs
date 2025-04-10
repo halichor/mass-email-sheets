@@ -63,11 +63,25 @@ function sendFlexibleMailMerge() {
       // Check attachments permissions before sending
       checkAttachmentsPermissions(attachmentLinks, rowData["To"] + "," + rowData["Cc"] + "," + rowData["Bcc"]);
 
+      // Get the (first) "Send As" email signature in the active account 
+      function getGmailSignature() {
+        try {
+          const sendAsList = Gmail.Users.Settings.SendAs.list('me');
+          const signature = sendAsList.sendAs[0].signature || ''; // Get the first sendAs account signature
+          return signature;
+        } catch (error) {
+          Logger.log('Error fetching signature: ' + error.message);
+          return '';  // Return an empty string if there's an error
+        }
+      }
+
+      const signature = "<br>" + getGmailSignature(); 
+
       // Define email options
       const emailOptions = {
         cc: cc,
         bcc: bcc,
-        htmlBody: htmlBody,
+        htmlBody: htmlBody + signature,  // Append the raw signature with emojis and special characters
         attachments: attachments,
       };
 
@@ -130,41 +144,86 @@ function replacePlaceholders(template, data) {
   return template.replace(/{{(.*?)}}/g, (_, key) => data[key.trim()] ?? '');
 }
 
-// Generate rich HTML body from a Google Doc template
+// Generate rich HTML body from a Google Doc template with inline styles
 function generateBodyFromGoogleDoc(docId, data) {
-  const url = `https://docs.google.com/feeds/download/documents/export/Export?id=${docId}&exportFormat=html`;
+  const url = `https://www.googleapis.com/drive/v3/files/${docId}/export?mimeType=text/html`;
+  
+  // Get OAuth token for authorization
   const token = ScriptApp.getOAuthToken();
-
+  
+  // Fetch the content of the Google Doc as HTML with inline styles
   const response = UrlFetchApp.fetch(url, {
+    method: 'get',
     headers: {
       Authorization: 'Bearer ' + token
     }
   });
-
+  
+  // Get the HTML content of the Google Doc
   let html = response.getContentText();
-
-  // Optional: Clean up Word-style formatting, fonts, etc.
+  
+  // Optionally sanitize for Gmail (removing styles, fonts, tables, etc.)
   html = sanitizeForGmail(html);
-
-  // Replace placeholders
+  
+  // Replace placeholders in the HTML with data
   html = replacePlaceholders(html, data);
-
+  
   return html;
 }
 
-// Sanitize template HTML to plain text
+// Sanitize template HTML to retain only essential inline styles, remove unwanted ones, and convert tables to paragraphs
 function sanitizeForGmail(html) {
-  // Remove styles and fonts
+  // Remove the <style> block entirely
   html = html.replace(/<style[\s\S]*?<\/style>/gi, '');
-  html = html.replace(/<[^>]*style="[^"]*"[^>]*>/gi, tag => tag.replace(/style="[^"]*"/gi, ''));
-  html = html.replace(/<font[^>]*>|<\/font>/gi, '');
-  
-  // Optional: remove extra table wrappers if you want
-  html = html.replace(/<table[^>]*>|<\/table>/gi, '');
-  html = html.replace(/<tr[^>]*>|<\/tr>/gi, '');
-  html = html.replace(/<td[^>]*>|<\/td>/gi, '');
 
+  // Remove the <body> tag with inline styles (e.g., background-color, max-width, etc.)
+  html = html.replace(/<body[^>]*style="[^"]*"[^>]*>/gi, '<body>'); // Remove inline styles from body tag
+
+  // Remove all inline styles except for allowed properties
+  html = html.replace(/<([a-zA-Z]+)([^>]*)style="([^"]*)"/gi, (match, tag, attrs, style) => {
+    const allowedStyles = ['color', 'font-size', 'text-decoration', 'font-weight', 'text-align'];
+    const styles = style.split(';').filter(s => {
+      const [property] = s.split(':').map(val => val.trim());
+      return allowedStyles.includes(property);
+    }).join(';');
+    
+    // Only return the tag with allowed inline styles
+    return `<${tag}${attrs}${styles ? ` style="${styles}"` : ''}>`;
+  });
+
+  // Ensure that <table>, <tr>, <td> and <th> are converted into <p> tags
+  html = html.replace(/<table[^>]*>/gi, '');
+  html = html.replace(/<\/table>/gi, '');
+
+  // Convert <tr> and <td> to <p> tags for Gmail compatibility
+  html = html.replace(/<tr[^>]*>/gi, '<p>');
+  html = html.replace(/<\/tr>/gi, '</p>');
+  html = html.replace(/<td[^>]*>/gi, '<p>');
+  html = html.replace(/<\/td>/gi, '</p>');
+
+  // Replace <th> with <p> as well
+  html = html.replace(/<th[^>]*>/gi, '<p>');
+  html = html.replace(/<\/th>/gi, '</p>');
+
+  // Fix: remove any extra closing tags like ">>" caused by unbalanced tags
+  html = html.replace(/<\s*([a-zA-Z]+)[^>]*>[\s]*<\s*\//g, '></');  // Look for mismatched tags and fix them
+
+  // Replace all occurrences of ">>" with ">"
+  html = html.replace(/>>/g, '>');  // Fix any stray ">>" characters
+
+  // Clean up any stray "><" that may have been inserted
+  html = html.replace(/><\s*/g, '> <'); // Ensure no stray closing tags
+
+  // Fix self-closing tags
+  html = html.replace(/<([a-zA-Z]+)[^>]*\/>/g, '<$1>'); // Fix self-closing tags like <img />
+  
   return html.trim();
+}
+
+
+// Replace {{placeholders}} in strings
+function replacePlaceholders(template, data) {
+  return template.replace(/{{(.*?)}}/g, (_, key) => data[key.trim()] ?? '');
 }
 
 // Get attachment links from a comma-separated string
@@ -254,4 +313,16 @@ function logToConsoleSheet(message, details = "") {
     logSheet.appendRow(["Timestamp", "Message", "Details"]);
   }
   logSheet.appendRow([new Date(), message, details]);
+}
+
+// Run this to preview the HTML output before sending emails (appears in console)
+function testGenerateHtmlFromGoogleDoc() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Data");
+  const docId = sheet.getRange("B1").getValue(); // Assuming the Google Doc ID is in B1
+
+  const rowData = {}; // Replace with actual data for placeholders
+  const htmlBody = generateBodyFromGoogleDoc(docId, rowData);
+
+  Logger.log(htmlBody); // Logs the generated HTML for inspection
 }

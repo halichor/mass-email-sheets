@@ -63,27 +63,33 @@ function sendFlexibleMailMerge() {
       // Check attachments permissions before sending
       checkAttachmentsPermissions(attachmentLinks, rowData["To"] + "," + rowData["Cc"] + "," + rowData["Bcc"]);
 
-      // Get the (first) "Send As" email signature in the active account 
-      function getGmailSignature() {
-        try {
-          const sendAsList = Gmail.Users.Settings.SendAs.list('me');
-          const signature = sendAsList.sendAs[0].signature || ''; // Get the first sendAs account signature
-          return signature;
-        } catch (error) {
-          Logger.log('Error fetching signature: ' + error.message);
-          return '';  // Return an empty string if there's an error
-        }
+    // Get the (first) "Send As" email signature in the active account 
+    function getGmailSignature() {
+      try {
+        const sendAsList = Gmail.Users.Settings.SendAs.list('me');
+        const signature = sendAsList.sendAs[0].signature || ''; // Get the first sendAs account signature
+        return signature;
+      } catch (error) {
+        Logger.log('Error fetching signature: ' + error.message);
+        return '';  // Return an empty string if there's an error
       }
+    }
 
-      const signature = "<br>" + getGmailSignature(); 
+    // Function to remove specific emojis using Unicode
+    // List all broken emojis here just in case, or they'll show up as broken characters in the signature
+    function removeSpecificEmojis(str) {
+      return str.replace(/\u{1F4EB}|\u{1F4E0}/gu, ''); // Remove the specific emojis by Unicode
+    }
 
-      // Define email options
-      const emailOptions = {
-        cc: cc,
-        bcc: bcc,
-        htmlBody: htmlBody + signature,  // Append the raw signature with emojis and special characters
-        attachments: attachments,
-      };
+    const signature = "<br>" + removeSpecificEmojis(getGmailSignature()); // Remove specific emojis from signature
+
+    // Define email options
+    const emailOptions = {
+      cc: cc,
+      bcc: bcc,
+      htmlBody: htmlBody + signature,  // Append the cleaned-up signature
+      attachments: attachments,
+    };
 
       let sentTime = "";
 

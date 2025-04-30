@@ -147,8 +147,19 @@ function sendFlexibleMailMerge() {
 
 // Replace {{placeholders}} in strings
 function replacePlaceholders(template, data) {
-  return template.replace(/{{(.*?)}}/g, (_, key) => data[key.trim()] ?? '');
+  return template.replace(/{{(.*?)}}/g, (_, key) => {
+    let value = data[key.trim()] ?? '';
+    
+    // Check if the value is a URL (using regex for HTTP/HTTPS links)
+    if (value.match(/^https?:\/\/[^\s]+$/)) {
+      return `<a href="${value}">${value}</a>`; // Convert the URL to a clickable link
+    }
+    
+    // Otherwise, return the value as-is
+    return value;
+  });
 }
+
 
 // Generate rich HTML body from a Google Doc template with inline styles
 function generateBodyFromGoogleDoc(docId, data) {
@@ -226,12 +237,6 @@ function sanitizeForGmail(html) {
   return html.trim();
 }
 
-
-// Replace {{placeholders}} in strings
-function replacePlaceholders(template, data) {
-  return template.replace(/{{(.*?)}}/g, (_, key) => data[key.trim()] ?? '');
-}
-
 // Get attachment links from a comma-separated string
 function getAttachmentLinks(linkString) {
   if (!linkString) return [];
@@ -247,7 +252,8 @@ function getDriveAttachments(attachmentLinks) {
     if (fileId) {
       try {
         const file = DriveApp.getFileById(fileId);
-        attachments.push(file.getAs(MimeType.PDF));  // Attach as PDF (or change MimeType if needed)
+        attachments.push(file);  // Attach file
+        // attachments.push(file.getAs(MimeType.PDF)); - Attach as PDF (or change MimeType if needed)
       } catch (e) {
         Logger.log("Error retrieving file: " + e.message);
       }

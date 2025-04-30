@@ -24,11 +24,11 @@ function sendFlexibleMailMerge() {
   const statusColIndex = headers.indexOf(STATUS_COLUMN_NAME);
   const now = new Date();
   
-  // Reads the Google Doc ID from cell B1. Change this if the cell location is different.
-  const docId = sheet.getRange("B1").getValue();
+  // Reads the Google Doc ID from cell C1. Change this if the cell location is different.
+  const docId = sheet.getRange("C1").getValue();
   
   if (!docId) {
-    logToConsoleSheet("No template Doc ID found", "Please enter a valid Google Doc ID in cell B1.");
+    logToConsoleSheet("No template Doc ID found", "Please enter a valid Google Doc ID in cell C1.");
     return;
   }
 
@@ -236,7 +236,11 @@ function sanitizeForGmail(html) {
 
   // Fix self-closing tags
   html = html.replace(/<([a-zA-Z]+)[^>]*\/>/g, '<$1>'); // Fix self-closing tags like <img />
-  
+
+  // Clean up extra spaces in <a> tag href attributes (remove leading/trailing spaces)
+  html = html.replace(/<a\s+href="(.*?)\s+"/g, '<a href="$1"'); // Remove trailing spaces in href values
+  html = html.replace(/<a\s+href="\s+(.*?)"/g, '<a href="$1"'); // Remove leading spaces in href values
+
   return html.trim();
 }
 

@@ -216,10 +216,10 @@ function sanitizeForGmail(html) {
   html = html.replace(/<\/table>/gi, '');
 
   // Convert <tr> and <td> to <p> tags for Gmail compatibility
-  html = html.replace(/<tr[^>]*>/gi, '<p>');
-  html = html.replace(/<\/tr>/gi, '</p>');
-  html = html.replace(/<td[^>]*>/gi, '<p>');
-  html = html.replace(/<\/td>/gi, '</p>');
+  html = html.replace(/<tr[^>]*>/gi, '<div>');
+  html = html.replace(/<\/tr>/gi, '</div>');
+  html = html.replace(/<td[^>]*>/gi, '<div>');
+  html = html.replace(/<\/td>/gi, '</div>');
 
   // Replace <th> with <p> as well
   html = html.replace(/<th[^>]*>/gi, '<p>');
@@ -241,6 +241,13 @@ function sanitizeForGmail(html) {
   html = html.replace(/<a\s+href="(.*?)\s+"/g, '<a href="$1"'); // Remove trailing spaces in href values
   html = html.replace(/<a\s+href="\s+(.*?)"/g, '<a href="$1"'); // Remove leading spaces in href values
 
+  // Collapse multiple newlines or line breaks into a single <br>
+  html = html.replace(/(\r\n|\n|\r){2,}/g, '<br>');
+
+  // Remove whitespace between tags
+  html = html.replace(/>\s+</g, '><');
+
+  // Trim the final result
   return html.trim();
 }
 

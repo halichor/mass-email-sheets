@@ -146,20 +146,24 @@ function sendFlexibleMailMerge() {
 }
 
 // Replace {{placeholders}} in strings
-function replacePlaceholders(template, data) {
+function replacePlaceholders(template, data, attachmentLinks) {
   return template.replace(/{{(.*?)}}/g, (_, key) => {
     let value = data[key.trim()] ?? '';
-    
+
+    // If the key/value is "AttachmentIDs", do not convert the links into clickable HTML. Send as an attachment instead.
+    if (key.trim() === "AttachmentIDs") {
+      return value; // Return the raw links as is
+    }
+
     // Check if the value is a URL (using regex for HTTP/HTTPS links)
     if (value.match(/^https?:\/\/[^\s]+$/)) {
-      return `<a href="${value}">${value}</a>`; // Convert the URL to a clickable link
+      return value; // Treat it as a raw link and return it as is, no <a> tag. Drive links will show under "Shared in Drive"
     }
-    
+
     // Otherwise, return the value as-is
     return value;
   });
 }
-
 
 // Generate rich HTML body from a Google Doc template with inline styles
 function generateBodyFromGoogleDoc(docId, data) {

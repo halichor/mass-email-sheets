@@ -54,10 +54,9 @@ function sendFlexibleMailMerge() {
       // Get Drive file attachments
       const attachments = getDriveAttachments(attachmentLinks);
 
+      // If no attachments are found, log it but don't stop the email process
       if (attachments.length === 0) {
-        logToConsoleSheet("Error: No valid attachments found", `To: ${to} | Attachments: ${attachmentLinks}`);
-        sheet.getRange(i + 1, statusColIndex + 1).setValue("Error: No valid attachments");
-        continue;
+        logToConsoleSheet("No attachments found", `To: ${to} | Attachments: ${attachmentLinks}`);
       }
 
       // Check attachments permissions before sending
@@ -88,7 +87,7 @@ function sendFlexibleMailMerge() {
       cc: cc,
       bcc: bcc,
       htmlBody: htmlBody + signature,  // Append the cleaned-up signature
-      attachments: attachments,
+      attachments: attachments.length > 0 ? attachments : [],  // Only include attachments if present
     };
 
       let sentTime = "";
